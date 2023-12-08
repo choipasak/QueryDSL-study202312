@@ -3,8 +3,9 @@ package com.example.study.repository;
 import com.example.study.entity.Member;
 import com.example.study.entity.QMember;
 import com.example.study.entity.Team;
+import com.querydsl.core.Tuple;
+import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -14,11 +15,12 @@ import org.springframework.test.annotation.Rollback;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
-
 import java.util.List;
 
-import static com.example.study.entity.QMember.*; // 얘는 상수임. 정적 객체를 가지고 와서 사용하는 것임, 바로 변수로 접근 가능!
-import static org.junit.jupiter.api.Assertions.*;
+import static com.example.study.entity.QMember.member;
+import static com.example.study.entity.QTeam.team;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 @SpringBootTest
 @Transactional
@@ -45,41 +47,66 @@ class MemberRepositoryTest {
     @Test
     void testInsertData() {
 
-        Team teamA = Team.builder()
-                .name("teamA")
-                .build();
-        Team teamB = Team.builder()
-                .name("teamB")
-                .build();
+//        Team teamA = Team.builder()
+//                .name("teamA")
+//                .build();
+//        Team teamB = Team.builder()
+//                .name("teamB")
+//                .build();
 
-        teamRepository.save(teamA);
-        teamRepository.save(teamB);
+//        teamRepository.save(teamA);
+//        teamRepository.save(teamB);
 
-        Member member1 = Member.builder()
-                .userName("member1")
-                .age(10)
-                .team(teamA)
+//        Member member1 = Member.builder()
+//                .userName("member1")
+//                .age(50)
+//                .team(teamA)
+//                .build();
+//        Member member2 = Member.builder()
+//                .userName("member2")
+//                .age(60)
+//                .team(teamA)
+//                .build();
+//        Member member3 = Member.builder()
+//                .userName("member3")
+//                .age(70)
+//                .team(teamB)
+//                .build();
+//        Member member4 = Member.builder()
+//                .userName("member4")
+//                .age(80)
+//                .team(teamB)
+//                .build();
+//
+//        memberRepository.save(member1);
+//        memberRepository.save(member2);
+//        memberRepository.save(member3);
+//        memberRepository.save(member4);
+
+        Member member5 = Member.builder()
+                .userName("member9")
+                .age(50)
+//                .team(teamA)
                 .build();
-        Member member2 = Member.builder()
-                .userName("member2")
-                .age(20)
-                .team(teamA)
+        Member member6 = Member.builder()
+                .userName("member10")
+                .age(50)
+//                .team(teamA)
                 .build();
-        Member member3 = Member.builder()
-                .userName("member3")
+        Member member7 = Member.builder()
+                .userName("member11")
                 .age(30)
-                .team(teamB)
+//                .team(teamB)
                 .build();
-        Member member4 = Member.builder()
-                .userName("member4")
-                .age(40)
-                .team(teamB)
+        Member member8 = Member.builder()
+                .userName("member12")
+                .age(80)
+//                .team(teamB)
                 .build();
-
-        memberRepository.save(member1);
-        memberRepository.save(member2);
-        memberRepository.save(member3);
-        memberRepository.save(member4);
+        memberRepository.save(member5);
+        memberRepository.save(member6);
+        memberRepository.save(member7);
+        memberRepository.save(member8);
     }
 
     @Test
@@ -217,6 +244,222 @@ class MemberRepositoryTest {
         //then
         assertEquals(1, result.size());
         assertEquals("teamB", result.get(0).getTeam().getName());
+    }
+    
+    @Test
+    @DisplayName("회원 정렬 조회")
+    void sort() {
+        //given
+
+        //when
+        List<Member> result = factory.selectFrom(member)
+//                .where(원하는 조건)
+                .orderBy(member.age.desc())
+                .fetch();
+
+        //then
+        System.out.println("\n\n\n");
+        System.out.println("result = " + result + "\n");
+        System.out.println("\n\n\n");
+    }
+
+    @Test
+    @DisplayName("queryDSL paging")
+    void paging() {
+        //given
+
+        //when
+        List<Member> result = factory.selectFrom(member)
+                .orderBy(member.userName.desc())
+                .offset(3)
+                .limit(3)
+                .fetch();
+        //then
+        System.out.println("\n\n\n");
+        System.out.println("result = " + result + "\n");
+        System.out.println("\n\n\n");
+
+        assertEquals(result.size(), 3);
+        assertEquals(result.get(1), "member6");
+    }
+    
+    @Test
+    @DisplayName("그룹 함수의 종류")
+    void aggregation() {
+        //given
+        
+        //when
+        List<Tuple> result = factory.select(
+                        member.count(),
+                        member.age.sum(),
+                        member.age.avg(),
+                        member.age.max(),
+                        member.age.min()
+                )
+                .from(member)
+                .fetch();
+
+        //then
+        Tuple tuple = result.get(0);
+        assertEquals(tuple.get(member.count()), 8);
+        assertEquals(tuple.get(member.age.sum()), 360);
+        assertEquals(tuple.get(member.age.avg()), 45);
+        assertEquals(tuple.get(member.age.min()), 10);
+        assertEquals(tuple.get(member.age.max()), 80);
+
+        System.out.println("\n\n\n");
+        System.out.println("result = " + result + "\n");
+        System.out.println("tuple = " + tuple + "\n");
+        System.out.println("\n\n\n");
+    }
+    
+    @Test
+    @DisplayName("GROUP BY, HAVING")
+    void testGroupBy() {
+        //given
+
+        //when
+        List<Long> result = factory.select(member.age.count())
+                .from(member)
+                .groupBy(member.age)
+                .having(member.age.count().goe(2))
+                .orderBy(member.age.asc())
+                .fetch();
+        //then
+        assertEquals(result.size(), 3);
+
+        System.out.println("\n\n\n");
+        result.forEach(System.out::println);
+        System.out.println("\n\n\n");
+
+    }
+
+    @Test
+    @DisplayName("join 해보기")
+    void join() {
+        //given
+
+
+        /*
+            Oracle DB의 경우 Oracle의 조인 문법도 사용이 가능하다.
+            SELECT * FROM employees, departments WHERE ~~ 이런식으로 작성했는데,
+            select().from(employees, departments).where(~~) 이런 방식으로도 작성이 가능하다.
+         */
+
+        //when
+        List<Member> result = factory.selectFrom(member)
+                // join(기준 Entity.조인 대상 Entity, 별칭)
+                .join(member.team, team) // inner join임
+                .where(team.name.eq("teamA"))
+                .fetch();
+
+        //then
+        System.out.println("\n\n\n");
+        result.forEach(System.out::println);
+        System.out.println("\n\n\n");
+    }
+
+
+
+    /*
+        - 원래 작성하는 쿼리문
+        ex) 회원과 팀을 조인하면서, 팀 이름이 teamA인 팀만 조회, 회원은 모두 조회.
+        SQL:
+        SELECT m.*, t.*
+        FROM tbl_member m
+        LEFT OUTER JOIN tbl_team t
+        ON m.team_id = t.team_id
+        AND t.name = 'teamA';
+        ============================
+        JPQL:
+        SELECT
+        FROM Member m
+        LEFT JOIN m.team t
+        ON t.name = 'teamA';
+        - 어차피 Entity인 Member 안에 Team이 있기 떄문에 조인문이 필요가 없다.
+     */
+    @Test
+    @DisplayName("left outer join test")
+    void leftJoinTest() {
+        //given
+
+        //when
+        List<Tuple> result = factory.select(member, team)
+                .from(member)
+                .leftJoin(member.team, team)
+                .on(team.name.eq("teamA"))
+                .fetch();
+        //then
+        System.out.println("\n\n\n");
+        result.forEach(tuple -> System.out.println("tuple = " + tuple));
+        System.out.println("\n\n\n");
+    }
+
+    @Test
+    @DisplayName("sub query 사용하기(나이가 가장 많은 회원을 조회)")
+    void subQueryTest() {
+        //given
+        // 같은 테이블에서 서브쿼리를 적용하려면 별도로 QClass의 객체를 생성해야 합니다.
+        QMember memberSub = new QMember("memberSub");
+
+        //when
+        List<Member> result = factory.selectFrom(member)
+                .where(member.age.eq(
+                        // 나이가 가장 많은 사람을 조회하는 서브쿼리문
+                        JPAExpressions // 서브쿼리를 사용할 수 있게 해 주는 클래스
+                                .select(memberSub.age.max())
+                                .from(memberSub)
+                )).fetch();
+
+        //then
+        System.out.println("\n\n\n");
+        result.forEach(System.out::println);
+        System.out.println("\n\n\n");
+
+    }
+
+    @Test
+    @DisplayName("나이가 평균 나이 이상인 회원을 조회")
+    void subQueryGoe() {
+        //given
+        QMember m2 = new QMember("m2");
+        //when
+        List<Member> result = factory.selectFrom(member)
+                .where(member.age.goe(
+                        /*
+                            - 알아둬야 할 점 (JPAExpressions)
+                            from절을 제외하고, select와 where절에서 사용이 가능.
+                            그럼 from절은 어떻게 사용 -> Native SQL 사용 || MyBastis || JDBC 템플릿 을 사용해야 함.
+                            ㄴ> JPQL도 마찬가지
+                            ! 아니면, 따로따로 두 번 조회도 사용.
+                         */
+                        JPAExpressions
+                                .select(m2.age.avg())
+                                .from(m2)
+                ))
+                .fetch();
+        //then
+        System.out.println("\n\n\n");
+        result.forEach(System.out::println);
+        System.out.println("\n\n\n");
+
+        assertEquals(result.size(), 4);
+    }
+    
+    @Test
+    @DisplayName("동적 SQL 테스트")
+    void dynamicQueryTest() {
+        //given
+        String name = null;
+        int age = 30;
+        //when
+        List<Member> result = memberRepository.findUser(name, null);
+        //then
+        assertEquals(result.size(), 8);
+
+        System.out.println("\n\n\n");
+        result.forEach(System.out::println);
+        System.out.println("\n\n\n");
     }
 
 }
